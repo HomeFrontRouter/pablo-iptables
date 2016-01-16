@@ -1,0 +1,63 @@
+# interfaces(5) file used by ifup(8) and ifdown(8)
+# Include files from /etc/network/interfaces.d:
+source-directory /etc/network/interfaces.d
+
+
+auto lo
+iface lo inet loopback
+
+allow-hotplug eth0
+iface eth0 inet manual
+
+allow-hotplug wlan0
+iface wlan0 inet manual
+
+#iface br0 inet dhcp
+   #bridge_ports eth0 wlan0
+   #bridge_waitport 0
+
+# ** LAN config VLAN 1 **
+# receive IP-Address from your DSL modem or cablemodem 
+auto eth0.101
+iface eth0.101 inet dhcp
+    vlan-raw-device eth0
+
+# ** LAN config VLAN 2, for the 4 ports **
+##### generate IP-Address for connected devices
+auto eth0.102
+iface eth0.102 inet manual
+
+# ** WLAN config **
+# generate IP-Address for connected devices
+auto wlan0
+iface wlan0 inet manual
+    post-up service hostapd start
+    post-up hostapd -dB /etc/hostapd/hostapd.conf
+    post-down service hostapd stop
+    post-down rm -rf /run/hostapd/wlan0
+
+
+# ** Bridge config **
+auto br0
+iface br0 inet static
+    #bridge_ports eth0.102
+    bridge_ports eth0.102 wlan0
+# pre-up ifup wlan0
+    bridge_waitport 0
+    address 10.20.30.2
+    network 10.20.30.0
+    netmask 255.255.255.0
+    #gateway 192.168.200.1
+    gateway 192.168.1.5
+
+#auto br0
+#iface br0 inet static
+    #bridge_ports eth0.102
+    #bridge_ports eth0.102 wlan0
+# pre-up ifup wlan0
+    #bridge_waitport 0
+    #address 192.168.9.2
+    #network 192.168.9.0
+    #netmask 255.255.255.0
+    #gateway 192.168.200.1
+    #gateway 192.168.1.5

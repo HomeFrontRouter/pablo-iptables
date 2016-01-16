@@ -1,0 +1,4 @@
+#!/bin/sh
+
+/sbin/ip addr delete 10.0.0.3/24 dev $INTERFACE
+/sbin/ip link set $INTERFACE down
