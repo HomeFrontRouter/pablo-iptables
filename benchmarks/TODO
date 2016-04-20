@@ -1,0 +1,18 @@
+Tue Apr 19 23:43:44 CDT 2016
+- rsync: use keys or sshpass. It seems rsync counts the time wasted
+  entering the password.
+- rsync tests are very similar: they can be put into a function.
+- create a new script called setup.sh to get all variables set, so run_test.sh
+  just run in batch mode.
+
+Fri Apr 15 01:10:01 CDT 2016
+- use colors for script messages, example:
+   echo "$(tput setaf 1)Red text $(tput setab 7)and white background$(tput sgr 0)"
+   http://stackoverflow.com/questions/5947742/how-to-change-the-output-color-of-echo-in-linux
+
+Fri Apr  8 13:41:13 CDT 2016
+- better stdout messages:
+    - different separator
+    - special prompt
+- line separator may be printed before subprocess
+- tip on how to change current pane in tmux
