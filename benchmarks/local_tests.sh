@@ -81,7 +81,7 @@ read
 # (local machine may have several NICs, e.g., like a server or a router).
 print_msg
 print_bar
-print_msg "Selecting local NIC/address:"
+print_msg "Selecting local NIC/address (only for reporting):"
 
 # obtain list of NICs and its IPs
 links=$(ip addr show |  awk '/inet /{gsub(/\/.*/,"",$2); printf "%s (%s)\n", $2, $NF}')
