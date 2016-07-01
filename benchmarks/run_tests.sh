@@ -25,17 +25,29 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 if [ $# != 1 ]; then
-    echo "Usage: remote_machine_IP"
+    echo "Usage: [ remote_IP | user@remote_IP ]"
     exit 1
 fi
 
-remote_machine="$1"
+# get ip from parameter
+if [[ $1 == *"@"* ]]; then
+    user="${1%%@*}"
+    ip="${1##*@}"
+else
+    user="$USER"
+    ip="$1"
+fi
+
+userconnn="$1" # for ssh
+
+echo "ip: $ip"
+echo "remoteconn: $userconnn"
 
 # main pane (left) will run local tests
-tmux -2 new-session -s benchmarks -d "./local_tests.sh benchmarks $remote_machine"
+tmux -2 new-session -s benchmarks -d "./local_tests.sh benchmarks $user $ip"
 
 # right pane will run supporting commands on the remote machine
-tmux -2 split-window -h -t benchmarks "ssh $remote_machine" 
+tmux -2 split-window -h -t benchmarks "ssh $userconnn"
 
 tmux -2 attach-session -t benchmarks
 
