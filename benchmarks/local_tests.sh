@@ -258,13 +258,16 @@ for trial in {"First","Second","Third"}; do
     print_bar
     print_msg
 
+    local_destination="$TRANSFER_FILE.$(date +%s)"
+
     echo rsync -vP "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}" \
-        "$TRANSFER_FILE.$(date +%s)"
+        "$local_destination"
 
     rsync -vP "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}" \
-        "$TRANSFER_FILE.$(date +%s)" | \
+        "$local_destination" | \
         tee >(awk '/sent/{print $7, $8}' >> "$LOG")
 
+    rm "$local_destination"
     sleep "$SLEEP_TIME"
 done
 echo >> "$LOG"
@@ -312,13 +315,16 @@ for trial in {"First","Second","Third"}; do
     print_bar
     print_msg
 
+    local_destination="$TRANSFER_FILE.$(date +%s)"
+
     echo rsync -vP -e "ssh -c arcfour -o Compression=no" \
-        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}" "$TRANSFER_FILE.$(date +%s)"
+        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}" "$local_destination"
 
     rsync -vP -e "ssh -c arcfour -o Compression=no" \
-        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}" "$TRANSFER_FILE.$(date +%s)" | \
+        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}" "$local_destination" | \
         tee >(awk '/sent/{print $7, $8}' >> "$LOG")
 
+    rm "$local_destination"
     sleep "$SLEEP_TIME"
 done
 echo >> "$LOG"
