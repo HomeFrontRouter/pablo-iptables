@@ -15,8 +15,8 @@
 # It uses well-known tools like iperf, dd/netcat, and rsync to actually send
 # and receive data.
 #
-# It receives two arguments: the name of the tmux session, and the IP of the
-# remote machine.
+# It receives three arguments: the name of the tmux session, the remote
+# username, and the IP of the remote machine.
 
 # Author: Pablo Piaggio (pabpia@gmail.com)
 
@@ -47,8 +47,8 @@ print_bar()
 }
 
 # It only continues if it receives the tmux's session name, and the remote IP.
-if [ $# != 2 ]; then
-    echo "Usage: tmux_session remote_machine_IP"
+if [ $# != 3 ]; then
+    echo "Usage: tmux_session user remote_IP"
     exit 1
 fi
 
@@ -61,7 +61,8 @@ fi
 
 # parameters
 tmux_session="$1"   # session's name
-remote_machine="$2" # remote machine's IP
+remote_user="$2" # remote machine's IP
+remote_machine="$3" # remote machine's IP
 
 # Global variables
 LOG="./benchmarks.log.$(date +%F.%s)" # measurements log file
@@ -230,10 +231,10 @@ for trial in {"First","Second","Third"}; do
     print_msg
 
     echo rsync -vP "$TRANSFER_FILE" \
-        "${remote_machine}":"./${TRANSFER_FILE}.$(date +%s)"
+        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}.$(date +%s)"
 
     rsync -vP "$TRANSFER_FILE" \
-        "${remote_machine}":"./${TRANSFER_FILE}.$(date +%s)" | \
+        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}.$(date +%s)" | \
         tee >(awk '/sent/{print $7, $8}' >> "$LOG")
 
     sleep "$SLEEP_TIME"
@@ -256,10 +257,10 @@ for trial in {"First","Second","Third"}; do
     print_bar
     print_msg
 
-    echo rsync -vP "${remote_machine}":"./${TRANSFER_FILE}" \
+    echo rsync -vP "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}" \
         "$TRANSFER_FILE.$(date +%s)"
 
-    rsync -vP "${remote_machine}":"./${TRANSFER_FILE}" \
+    rsync -vP "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}" \
         "$TRANSFER_FILE.$(date +%s)" | \
         tee >(awk '/sent/{print $7, $8}' >> "$LOG")
 
@@ -284,10 +285,10 @@ for trial in {"First","Second","Third"}; do
     print_msg
 
     echo rsync -vP -e "ssh -c arcfour -o Compression=no" "$TRANSFER_FILE" \
-        "${remote_machine}":"./${TRANSFER_FILE}.$(date +%s)"
+        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}.$(date +%s)"
 
     rsync -vP -e "ssh -c arcfour -o Compression=no" "$TRANSFER_FILE" \
-        "${remote_machine}":"./${TRANSFER_FILE}.$(date +%s)" | \
+        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}.$(date +%s)" | \
         tee >(awk '/sent/{print $7, $8}' >> "$LOG")
 
     sleep "$SLEEP_TIME"
@@ -311,10 +312,10 @@ for trial in {"First","Second","Third"}; do
     print_msg
 
     echo rsync -vP -e "ssh -c arcfour -o Compression=no" \
-        "${remote_machine}":"./${TRANSFER_FILE}" "$TRANSFER_FILE.$(date +%s)"
+        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}" "$TRANSFER_FILE.$(date +%s)"
 
     rsync -vP -e "ssh -c arcfour -o Compression=no" \
-        "${remote_machine}":"./${TRANSFER_FILE}" "$TRANSFER_FILE.$(date +%s)" | \
+        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}" "$TRANSFER_FILE.$(date +%s)" | \
         tee >(awk '/sent/{print $7, $8}' >> "$LOG")
 
     sleep "$SLEEP_TIME"
