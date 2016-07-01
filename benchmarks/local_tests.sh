@@ -68,6 +68,7 @@ remote_machine="$3" # remote machine's IP
 LOG="./benchmarks.log.$(date +%F.%s)" # measurements log file
 SLEEP_TIME="10s"     # pause time between tests.
 TRANSFER_FILE="LAS.s41e10.mp4"
+NC="nc.openbsd"
 
 # wait for a succesful remote login in the other pane
 print_bar
@@ -208,7 +209,7 @@ for trial in {"First","Second","Third"}; do
 
     dd if="$TRANSFER_FILE" bs=1M count=1K \
         2> >(awk '/copied/{print $8, $9}' >> "$LOG") | \
-        nc -vvn "$remote_machine" 12345 
+        "$NC" -vvn "$remote_machine" 12345 
 
     sleep "$SLEEP_TIME"
 done
