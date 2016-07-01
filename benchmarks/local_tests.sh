@@ -66,7 +66,7 @@ remote_machine="$3" # remote machine's IP
 
 # Global variables
 LOG="./benchmarks.log.$(date +%F.%s)" # measurements log file
-SLEEP_TIME="5s"     # pause time between tests.
+SLEEP_TIME="10s"     # pause time between tests.
 TRANSFER_FILE="LAS.s41e10.mp4"
 
 # wait for a succesful remote login in the other pane
