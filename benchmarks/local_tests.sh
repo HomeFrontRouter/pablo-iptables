@@ -208,7 +208,7 @@ for trial in {"First","Second","Third"}; do
     sleep 2s
 
     dd if="$TRANSFER_FILE" bs=1M count=1K \
-        2> >(awk '/copied/{print $8, $9}' >> "$LOG") | \
+        2> >(awk '/copied/{print $(NF-1), $NF}' >> "$LOG") | \
         "$NC" -vvn "$remote_machine" 12345 
 
     sleep "$SLEEP_TIME"
