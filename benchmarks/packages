@@ -1,0 +1,9 @@
+# Necessary packages
+bash
+vim
+tmux
+iperf
+netcat  # if Ubuntu
+netcat-openbsd # if Debian
+dd
+rsync
