@@ -116,7 +116,7 @@ print_bar
 print_msg
 # run 3 pings and write results to log
 echo "ping from $local_machine to $remote_machine" >> "$LOG"
-ping -c6 vanhalen | tee >(awk -F/ '/rtt min/{printf "%.3f\n", $5}' >> "$LOG")
+ping -c6 "$remote_machine" | tee >(awk -F/ '/rtt min/{printf "%.3f\n", $5}' >> "$LOG")
 echo >> "$LOG"
 
 #### iperf over TCP ###########################################################
