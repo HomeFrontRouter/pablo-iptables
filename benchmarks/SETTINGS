@@ -1,0 +1,73 @@
+#!/bin/bash
+
+# Local machine.
+# Use for reporting only
+LOCAL_MACHINE=192.168.2.100
+
+# Remote credentials.
+#
+# REMOTE_USER is the login username on the remote server.
+# REMOTE_IP is used instead of hostname to speed up connections.
+# SSH_KEY is necesary to avoid interactive rsync.
+REMOTE_USER="pablo"
+REMOTE_IP="192.168.2.1"
+SSH_KEY="/home/pablo/.ssh/bench"
+
+# Log file.
+# File where the benchmarks measurements will be saved.
+LOG="./benchmarks.log.$(date +%F.%s)"
+
+# Pause time between tests
+# To avoid network congestion, all test are space by this amount of time.
+SLEEP_TIME="10s"
+
+# Test file
+# File used for netcat and rsync transfers.
+TRANSFER_FILE="./LAS.s41e10.mp4"
+
+# Netcat command
+#
+# The default netcat on BananaPi is a Linux version, and it does not work
+# well with kernels above 3.9 (because of new socket option SO_REUSEPORT).
+# Using the version of netcat available on the netcat-openbsd command
+# allows to communicate with an Ubuntu 14.04+ server.
+#
+#NC_CMD="nc.openbsd"
+NC_CMD="nc"
+
+# Tmux session name
+# The actual benchmark script runs on a pane of a tmux session.
+# Parameterizing this variable allows the script to manage the session,
+# and send commands to the remote host.
+TMUX_SESSION="benchmarks"
+
+#
+# Benchmarks
+#
+PING="yes"
+PING_COUNT="6"
+
+IPERF_TCP="yes"
+IPERF_TCP_TRIES="3"
+
+IPERF_UDP="yes"
+IPERF_UDP_BANDWIDTH="1200M"
+IPERF_UDP_TRIES="3"
+
+DD_NETCAT_TCP="yes"
+DD_NETCAT_TCP_TRIES="3"
+
+DD_NETCAT_UDP="yes"
+DD_NETCAT_UDP_TRIES="3"
+
+HTTP_DOWNLOAD="yes"
+HTTP_TRIES="3"
+
+HTTPS_DOWNLOAD="yes"
+HTTPS_TRIES="3"
+
+RSYNC_DEFAULT="yes"
+RSYNC_DEFAULT_TRIES="2"
+
+RSYNC_LIGHT="yes"
+RSYNC_LIGHT_TRIES="2"
