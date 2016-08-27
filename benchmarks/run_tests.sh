@@ -24,32 +24,50 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-if [ $# != 1 ]; then
-    echo "Usage: [ remote_IP | user@remote_IP ]"
-    exit 1
+# print a message and exit
+msg_n_exit()
+{
+    echo "$1 is not defined."
+    echo "please set a value on the file: $SETTINGS_FILE"
+    exit "$2"
+}
+
+
+#
+# Load global settings for the test from settings file.
+#
+SETTINGS_FILE="./SETTINGS"  # settings file
+
+# Load settings if file exists
+if [ -f "$SETTINGS_FILE" ]; then
+    source "$SETTINGS_FILE"
 fi
 
-# get ip from parameter
-if [[ $1 == *"@"* ]]; then
-    user="${1%%@*}"
-    ip="${1##*@}"
-else
-    user="$USER"
-    ip="$1"
+#
+# Exit if any variable is not set.
+#-----------------------------------------------------------
+if [ ! -n "$REMOTE_USER" ]; then
+    msg_n_exit "REMOTE_USER" 1
 fi
-
-userconnn="$1" # for ssh
-
-echo "ip: $ip"
-echo "remoteconn: $userconnn"
+if [ ! -n "$REMOTE_IP" ]; then
+    msg_n_exit "REMOTE_IP" 2
+fi
+if [ ! -n "$SSH_KEY" ]; then
+    msg_n_exit "SSH_KEY" 3
+fi
+if [ ! -n "$TMUX_SESSION" ]; then
+    msg_n_exit "TMUX_SESSION" 8
+fi
+#-----------------------------------------------------------
 
 # main pane (left) will run local tests
-tmux -2 new-session -s benchmarks -d "./local_tests.sh benchmarks $user $ip"
+tmux -2 new-session -s "$TMUX_SESSION" -d \
+     "./local_tests.sh $TMUX_SESSION"
 
 # right pane will run supporting commands on the remote machine
-tmux -2 split-window -h -t benchmarks "ssh $userconnn"
+tmux -2 split-window -h -t "$TMUX_SESSION" "ssh -i ${SSH_KEY} ${REMOTE_USER}@${REMOTE_IP}"
 
-tmux -2 attach-session -t benchmarks
+tmux -2 attach-session -t "$TMUX_SESSION"
 
 #tmux kill-session -t benchmarks
 
