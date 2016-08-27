@@ -1,0 +1,44 @@
+ping from 192.168.2.100 to 192.168.2.1
+0.206
+
+iperf TCP upload from 192.168.2.100 to 192.168.2.1
+94.1 Mbits/sec
+94.2 Mbits/sec
+94.1 Mbits/sec
+
+iperf UDP upload from 192.168.2.100 to 192.168.2.1
+92.0 Mbits/sec
+92.0 Mbits/sec
+92.0 Mbits/sec
+
+dd/netcat upload from 192.168.2.100 to 192.168.2.1
+11.8 MB/s
+11.8 MB/s
+11.8 MB/s
+
+HTTP download from 192.168.2.1 to 192.168.2.100
+11.2 MB/s
+11.2 MB/s
+11.2 MB/s
+
+HTTPS download from 192.168.2.1 to 192.168.2.100
+11.2 MB/s
+11.2 MB/s
+11.2 MB/s
+
+rsync upload with default ssh encryption from 192.168.2.100 to 192.168.2.1
+9,120,288.61 bytes/sec
+9,988,887.52 bytes/sec
+
+rsync upload with light ssh encryption from 192.168.2.100 to 192.168.2.1
+9,120,288.61 bytes/sec
+9,988,887.52 bytes/sec
+
+rsync download with default ssh-encryption. 192.168.2.100 pulls from 192.168.2.1
+5,826,872.89 bytes/sec
+5,826,872.89 bytes/sec
+
+rsync download with light ssh-encryption. 192.168.2.100 pulls from 192.168.2.1
+5,826,872.89 bytes/sec
+5,826,872.89 bytes/sec
+
