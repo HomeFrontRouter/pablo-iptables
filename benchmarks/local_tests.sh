@@ -35,315 +35,341 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-PROMPT="->"
+
+# If any variable is not set, ask for its value interactevely
+
+
+#PROMPT="-> "
+PROMPT=""
 print_msg()
 {
-    echo "${PROMPT} $1"
+    echo "$(tput setaf 6)${PROMPT}${1}$(tput sgr 0)"
 }
 
 print_bar()
 {
-    echo "${PROMPT} ++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+    echo -n "$(tput setaf 6)"
+    echo -n "${PROMPT}++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+    echo "$(tput sgr 0)"
 }
 
-# It only continues if it receives the tmux's session name, and the remote IP.
-if [ $# != 3 ]; then
-    echo "Usage: tmux_session user remote_IP"
-    exit 1
+# It only continues if it receives the perfect parameters:
+# TMUX_SESSION REMOTE_USER REMOTE_IP SSH_KEY LOG SLEEP_TIME TRANSFER_FILE NC_CMD TMUX_SESSION
+if [ $# != 1 ]; then
+    echo "Usage: $0 TMUX_SESSION"
+    read
+    exit 10
 fi
 
 # check if script is inside a tmux session
 if [[ ! -v TMUX ]]; then
     echo "Error: this script is not the main script."
     echo "Please run the benchmarks with 'run_tests.sh"
-    exit 2
+    exit 11
 fi
 
-# parameters
-tmux_session="$1"   # session's name
-remote_user="$2" # remote machine's IP
-remote_machine="$3" # remote machine's IP
+#
+# Load global settings for the test from settings file.
+#
+SETTINGS_FILE="./SETTINGS"  # settings file
 
-# Global variables
-LOG="./benchmarks.log.$(date +%F.%s)" # measurements log file
-SLEEP_TIME="10s"     # pause time between tests.
-TRANSFER_FILE="LAS.s41e10.mp4"
-NC="nc.openbsd"
+# Load settings if file exists
+if [ -f "$SETTINGS_FILE" ]; then
+    source "$SETTINGS_FILE"
+fi
 
 # wait for a succesful remote login in the other pane
-print_bar
 print_msg "Please login into the remote machine in the other pane."
 print_msg "When that's ready, switch to this pane (Ctrl+B then an arrow_key),"
 print_msg "and press Enter."
 print_bar
 read
 
-# select local NIC and address to run the test from
-# (local machine may have several NICs, e.g., like a server or a router).
-print_msg
-print_bar
-print_msg "Selecting local NIC/address (only for reporting):"
-
-# obtain list of NICs and its IPs
-links=$(ip addr show |  awk '/inet /{gsub(/\/.*/,"",$2); printf "%s (%s)\n", $2, $NF}')
-
-OLD_IFS=${IFS}
-IFS=$'\n'
-# select local interface and its IP
-select interface in $links; do
-
-    # separate selected IP and device into an array
-    IFS=' ' read -r -a ip_dev <<< "$interface"
-    print_msg "using local IP:${ip_dev[0]} on dev:${ip_dev[1]}"
+#### ping #####################################################################
+if [ "$PING" == "yes" ]; then
+    print_msg "PING."
     print_bar
-    # set local IP
-    local_machine="${ip_dev[0]}"
-    break
-done
-IFS=${OLD_IFS}
 
-# exiting if no ip address was chosen
-if [ -z $local_machine ]; then
-    echo "Error: no interface were chosen."
-    exit 3
+    # run PING_COUNT pings and write results to log
+    echo "ping from $LOCAL_MACHINE to $REMOTE_IP" >> "$LOG"
+    ping -c"${PING_COUNT}" "$REMOTE_IP" | tee >(awk -F/ '/rtt min/{printf "%.3f\n", $5}' >> "$LOG")
+    echo >> "$LOG"
+    echo
 fi
 
-#### ping #####################################################################
-print_msg
-print_bar
-print_msg "Test 1: ping."
-print_bar
-print_msg
-# run 3 pings and write results to log
-echo "ping from $local_machine to $remote_machine" >> "$LOG"
-ping -c6 "$remote_machine" | tee >(awk -F/ '/rtt min/{printf "%.3f\n", $5}' >> "$LOG")
-echo >> "$LOG"
-
 #### iperf over TCP ###########################################################
-# request user to run remote command
-print_msg
-print_bar
-print_msg "Test 2: upload to remote machine using iperf over TCP."
-print_bar
-print_msg "running 'iperf -s' on $remote_machine"
-print_msg
-# send command to the other pane
-tmux send-keys -t "${tmux_session}.1" "iperf -s" ENTER
-sleep 2s
-
-# log title on log
-echo "iperf TCP upload from $local_machine to $remote_machine" >> "$LOG"
-
-# perform 3 tranfers
-for trial in {"First","Second","Third"}; do
-    print_msg "${trial} run"
+if [ "$IPERF_TCP" == "yes" ]; then
+    print_msg "IPERF over TCP."
+    print_msg "upload to remote machine using iperf over TCP."
+    print_msg "running 'iperf -s' on $REMOTE_IP"
     print_bar
-    print_msg
-
-    iperf -c "$remote_machine" | tee >(awk '/MBytes/{print $7, $8}' >> "$LOG")
-
-    sleep "$SLEEP_TIME"
-done
-echo >> "$LOG"
-
-# stop iperf on remote machine
-sleep 2s
-tmux send -t "${tmux_session}.1" C-c
-sleep 2s
-tmux send -t "${tmux_session}.1" ENTER
-
-#### iperf over UDP ###########################################################
-# request user to run remote command
-print_msg
-print_bar
-print_msg "Test 3: upload to remote machine using iperf over UDP"
-print_bar
-print_msg
-print_msg "running 'iperf -u -s' on $remote_machine"
-print_msg
-# send command to the other pane
-tmux send-keys -t "${tmux_session}.1" "iperf -u -s" ENTER
-sleep 2s
-
-# log title on log
-echo "iperf UDP upload from $local_machine to $remote_machine" >> "$LOG"
-
-# perform 3 tranfers
-for trial in {"First","Second","Third"}; do
-    print_msg "${trial} run"
-    print_bar
-    print_msg
-
-    iperf -u -c "$remote_machine" -b 1600M | \
-        tee >(awk '/Interval/{getline; print $7, $8}' >> "$LOG")
-
-    sleep "$SLEEP_TIME"
-done
-echo >> "$LOG"
-
-# stop iperf on remote machine
-tmux send -t "${tmux_session}.1" C-c
-sleep 2s
-tmux send -t "${tmux_session}.1" ENTER
-
-#### dd | netcat ##############################################################
-# request user to run remote command
-print_msg
-print_bar
-print_msg "Test 4: upload to remote machine using netcat."
-print_bar
-print_msg
-
-# log title on log
-echo "dd/netcat upload from $local_machine to $remote_machine" >> "$LOG"
-
-# perform 3 tranfers
-for trial in {"First","Second","Third"}; do
-    print_msg "${trial} run"
-    print_bar
-    print_msg
-    print_msg "running 'nc -vvlnp 12345 >/dev/null' on $remote_machine"
-
-    tmux send -t "${tmux_session}.1" 'nc -vvlnp 12345 >/dev/null' ENTER
+    # send command to the other pane
+    tmux send-keys -t "${TMUX_SESSION}.1" "iperf -s" ENTER
     sleep 2s
 
-    dd if="$TRANSFER_FILE" bs=1M count=1K \
-        2> >(awk '/copied/{print $(NF-1), $NF}' >> "$LOG") | \
-        "$NC" -vvn "$remote_machine" 12345 
+    # log title on log
+    echo "iperf TCP upload from $LOCAL_MACHINE to $REMOTE_IP" >> "$LOG"
 
-    sleep "$SLEEP_TIME"
-done
-echo >> "$LOG"
+    # perform IPERF_UDP_TRIES tranfers
+    for trial in $(seq 1 "$IPERF_TCP_TRIES"); do
+        print_msg "try #${trial}"
+
+        iperf -c "$REMOTE_IP" | tee >(awk '/MBytes/{print $7, $8}' >> "$LOG")
+
+        sleep "$SLEEP_TIME"
+        echo
+    done
+    echo >> "$LOG"
+
+    # stop iperf on remote machine
+    sleep 2s
+    tmux send -t "${TMUX_SESSION}.1" C-c
+    sleep 2s
+    tmux send -t "${TMUX_SESSION}.1" ENTER
+
+    echo
+fi
+
+#### iperf over UDP ###########################################################
+if [ "$IPERF_UDP" == "yes" ]; then
+    print_msg "IPERF over UDP"
+    print_msg "upload to remote machine using iperf over UDP"
+    print_msg "running 'iperf -u -s' on $REMOTE_IP"
+    print_bar
+    # send command to the other pane
+    tmux send-keys -t "${TMUX_SESSION}.1" "iperf -u -s" ENTER
+    sleep 2s
+
+    # log title on log
+    echo "iperf UDP upload from $LOCAL_MACHINE to $REMOTE_IP" >> "$LOG"
+
+    # perform 3 tranfers
+    for trial in $(seq 1 "$IPERF_UDP_TRIES"); do
+        print_msg "try #${trial}"
+
+        iperf -u -c "$REMOTE_IP" -b "$IPERF_UDP_BANDWIDTH" | \
+            tee >(awk '/Interval/{getline; print $7, $8}' >> "$LOG")
+
+        sleep "$SLEEP_TIME"
+        echo
+    done
+    echo >> "$LOG"
+
+    # stop iperf on remote machine
+    tmux send -t "${TMUX_SESSION}.1" C-c
+    sleep 2s
+    tmux send -t "${TMUX_SESSION}.1" ENTER
+
+    echo
+fi
+
+#### dd | netcat ##############################################################
+if [ "$DD_NETCAT_TCP" == "yes" ]; then
+    print_msg "DD and NETCAT."
+    print_msg "upload to remote machine using netcat."
+    print_bar
+
+    # log title on log
+    echo "dd/netcat upload from $LOCAL_MACHINE to $REMOTE_IP" >> "$LOG"
+
+    # perform 3 tranfers
+    for trial in $(seq 1 "$DD_NETCAT_TCP_TRIES"); do
+        print_msg "try #${trial}"
+        print_msg "running 'nc -vvlnp 12345 >/dev/null' on $REMOTE_IP"
+
+        tmux send -t "${TMUX_SESSION}.1" 'nc -vvlnp 12345 >/dev/null' ENTER
+        sleep 2s
+
+        dd if="$TRANSFER_FILE" bs=1M count=1K \
+            2> >(awk '/copied/{print $(NF-1), $NF}' >> "$LOG") | \
+            "$NC_CMD" -vvn "$REMOTE_IP" 12345
+
+        sleep "$SLEEP_TIME"
+        echo
+    done
+    echo >> "$LOG"
+
+    # stop HTTP server on remote machine
+    tmux send -t "${TMUX_SESSION}.1" C-c
+    sleep 2s
+    tmux send -t "${TMUX_SESSION}.1" ENTER
+
+    echo
+fi
+
+# TODO: dd netcat over UDP
+
+#### HTTP download #############################################################
+if [ "$HTTP_DOWNLOAD" == "yes" ]; then
+    print_msg "HTTP download."
+    print_msg "running 'python -m SimpleHTTPServer 8080' on $REMOTE_IP"
+    print_bar
+
+    tmux send -t "${TMUX_SESSION}.1" 'python -m SimpleHTTPServer 8080' ENTER
+    sleep 2s
+
+    # log title on log
+    echo "HTTP download from $REMOTE_IP to $LOCAL_MACHINE" >> "$LOG"
+
+    # perform HTTP_TRIES tranfers
+    for trial in $(seq 1 "$HTTP_TRIES"); do
+        print_msg "try #${trial}"
+
+        wget "http://${REMOTE_IP}:8080/${TRANSFER_FILE}" --progress=bar:force \
+             -O /dev/null 2>&1 | \
+             tee >(awk '/saved/{sub(/^\(/,"",$3); sub(/\)$/,"",$4);print $3,$4}' >> "$LOG")
+
+        sleep "$SLEEP_TIME"
+        echo
+    done
+    echo >> "$LOG"
+
+    # stop HTTPS server on remote machine
+    tmux send -t "${TMUX_SESSION}.1" C-c
+    sleep 2s
+    tmux send -t "${TMUX_SESSION}.1" ENTER
+
+    echo
+fi
+
+#### HTTPS download ############################################################
+if [ "$HTTPS_DOWNLOAD" == "yes" ]; then
+    print_msg "HTTPS download."
+    print_msg "running 'python ./https_server.py' on $REMOTE_IP"
+    print_bar
+
+    tmux send -t "${TMUX_SESSION}.1" 'python ./https_server.py' ENTER
+    sleep 2s
+
+    # log title on log
+    echo "HTTPS download from $REMOTE_IP to $LOCAL_MACHINE" >> "$LOG"
+
+    # perform HTTPS_TRIES tranfers
+    for trial in $(seq 1 "$HTTPS_TRIES"); do
+        print_msg "try #${trial}"
+
+        wget "https://${REMOTE_IP}:4443/${TRANSFER_FILE}" \
+             --no-check-certificate --progress=bar:force -O /dev/null 2>&1 | \
+             tee >(awk '/saved/{sub(/^\(/,"",$3); sub(/\)$/,"",$4);print $3,$4}' >> "$LOG")
+
+        sleep "$SLEEP_TIME"
+        echo
+    done
+    echo >> "$LOG"
+
+    echo
+fi
+
+#
+# Generic rsync test
+#
+gen_rsync_upload()
+{
+    title="$1"
+    subtitle="$2"
+    cipher=$3
+    tries="$4"
+
+    print_msg "$title"
+    print_msg "$subtitle"
+    print_bar
+
+    # log title on log
+    echo "$subtitle from $LOCAL_MACHINE to $REMOTE_IP" >> "$LOG"
+
+    # perform 3 tranfers
+    for trial in $(seq 1 "$tries"); do
+        print_msg "try #${trial}"
+
+        echo rsync -e "ssh -i $SSH_KEY $cipher" -vP "$TRANSFER_FILE" \
+            "${REMOTE_USER}@${REMOTE_IP}":"./${TRANSFER_FILE}.$(date +%s)"
+
+        rsync -e "ssh -i $SSH_KEY $cipher" -vP "$TRANSFER_FILE" \
+            "${REMOTE_USER}@${REMOTE_IP}":"./${TRANSFER_FILE}.$(date +%s)" | \
+            tee >(awk '/sent/{print $7, $8}' >> "$LOG")
+
+        sleep "$SLEEP_TIME"
+        echo
+    done
+    echo >> "$LOG"
+}
 
 #### rsync upload default encryption ##########################################
-print_msg
-print_bar
-print_msg "Test 5: rsync upload with default encryption."
-print_bar
-print_msg
-
-# log title on log
-echo "rsync upload default cipher from $local_machine to $remote_machine" >> "$LOG"
-
-# perform 3 tranfers
-for trial in {"First","Second","Third"}; do
-    print_msg "${trial} run"
-    print_bar
-    print_msg
-
-    echo rsync -vP "$TRANSFER_FILE" \
-        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}.$(date +%s)"
-
-    rsync -vP "$TRANSFER_FILE" \
-        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}.$(date +%s)" | \
-        tee >(awk '/sent/{print $7, $8}' >> "$LOG")
-
-    sleep "$SLEEP_TIME"
-done
-echo >> "$LOG"
-
-#### rsync download default encryption ########################################
-print_msg
-print_bar
-print_msg "Test 6: rsync download with default encryption."
-print_bar
-print_msg
-
-# log title on log
-echo "rsync download default cipher. $local_machine pulls from $remote_machine" >> "$LOG"
-
-# perform 3 tranfers
-for trial in {"First","Second","Third"}; do
-    print_msg "${trial} run"
-    print_bar
-    print_msg
-
-    local_destination="$TRANSFER_FILE.$(date +%s)"
-
-    echo rsync -vP "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}" \
-        "$local_destination"
-
-    rsync -vP "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}" \
-        "$local_destination" | \
-        tee >(awk '/sent/{print $7, $8}' >> "$LOG")
-
-    rm "$local_destination"
-    sleep "$SLEEP_TIME"
-done
-echo >> "$LOG"
+if [ "$RSYNC_DEFAULT" == "yes" ]; then
+    gen_rsync_upload "RSYNC TEST" "rsync upload with default ssh encryption" \
+                   "" "$RSYNC_DEFAULT_TRIES"
+fi
 
 #### rsync upload ligth encryption ############################################
-print_msg
-print_bar
-print_msg "Test 7: rsync upload with light encryption."
-print_bar
-print_msg
+if [ "$RSYNC_LIGHT" == "yes" ]; then
+    gen_rsync_upload "RSYNC TEST" "rsync upload with light ssh encryption" \
+                   "-c arcfour -o Compression=no" "$RSYNC_LIGHT_TRIES"
+fi
 
-# log title on log
-echo "rsync upload light cipher from $local_machine to $remote_machine" >> "$LOG"
+#
+# Generic rsync download
+#
+gen_rsync_download()
+{
+    title="$1"
+    subtitle="$2"
+    cipher=$3
+    tries="$4"
 
-# perform 3 tranfers
-for trial in {"First","Second","Third"}; do
-    print_msg "${trial} run"
+    print_msg "$title"
+    print_msg "$subtitle"
     print_bar
-    print_msg
 
-    echo rsync -vP -e "ssh -c arcfour -o Compression=no" "$TRANSFER_FILE" \
-        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}.$(date +%s)"
+    # log title on log
+    echo "$subtitle. $LOCAL_MACHINE pulls from $REMOTE_IP" >> "$LOG"
 
-    rsync -vP -e "ssh -c arcfour -o Compression=no" "$TRANSFER_FILE" \
-        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}.$(date +%s)" | \
-        tee >(awk '/sent/{print $7, $8}' >> "$LOG")
+    # perform 'tries' tranfers
+    for trial in $(seq 1 "$tries"); do
+        print_msg "try #${trial}"
 
-    sleep "$SLEEP_TIME"
-done
-echo >> "$LOG"
+        local_destination="$TRANSFER_FILE.$(date +%s)"
 
-#### rsync download ligth encryption ##########################################
-print_msg
-print_bar
-print_msg "Test 8: rsync download with light encryption."
-print_bar
-print_msg
+        echo rsync -e "ssh -i $SSH_KEY $cipher" -vP \
+             "${REMOTE_USER}@${REMOTE_IP}":"./${TRANSFER_FILE}" \
+             "$local_destination"
 
-# log title on log
-echo "rsync download light cipher. $local_machine pulls from $remote_machine" >> "$LOG"
+        rsync -e "ssh -i $SSH_KEY $cipher" -vP \
+              "${REMOTE_USER}@${REMOTE_IP}":"./${TRANSFER_FILE}" \
+              "$local_destination" | tee >(awk '/sent/{print $7, $8}' >> "$LOG")
 
-# perform 3 tranfers
-for trial in {"First","Second","Third"}; do
-    print_msg "${trial} run"
-    print_bar
-    print_msg
+        rm "$local_destination"
+        sleep "$SLEEP_TIME"
+        echo
+    done
+    echo >> "$LOG"
+}
 
-    local_destination="$TRANSFER_FILE.$(date +%s)"
+#### rsync download default encryption ##########################################
+if [ "$RSYNC_DEFAULT" == "yes" ]; then
+    gen_rsync_download "RSYNC TEST" "rsync download with default ssh-encryption" \
+                       "" "$RSYNC_DEFAULT_TRIES"
+fi
 
-    echo rsync -vP -e "ssh -c arcfour -o Compression=no" \
-        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}" "$local_destination"
+#### rsync download ligth encryption ############################################
+if [ "$RSYNC_LIGHT" == "yes" ]; then
+    gen_rsync_download "RSYNC TEST" "rsync download with light ssh-encryption" \
+                       "-c arcfour -o Compression=no" "$RSYNC_LIGHT_TRIES"
+fi
 
-    rsync -vP -e "ssh -c arcfour -o Compression=no" \
-        "${remote_user}@${remote_machine}":"./${TRANSFER_FILE}" "$local_destination" | \
-        tee >(awk '/sent/{print $7, $8}' >> "$LOG")
-
-    rm "$local_destination"
-    sleep "$SLEEP_TIME"
-done
-echo >> "$LOG"
 
 #### finishing ################################################################
-print_msg
-print_bar
 print_msg "Tests finished."
-print_msg "Results are saved on log file: $LOG"
+print_msg "Results are saved on: $LOG"
 print_msg
 print_msg "Press Enter to quit."
 print_bar
 read
 
 # close remote session
-tmux send -t "${tmux_session}.1" C-c
-tmux send -t "${tmux_session}.1" C-c
+tmux send -t "${TMUX_SESSION}.1" C-c
+tmux send -t "${TMUX_SESSION}.1" C-c
 sleep 2s
-tmux send -t "${tmux_session}.1" ENTER
-tmux send -t "${tmux_session}.1" C-d
+tmux send -t "${TMUX_SESSION}.1" ENTER
+tmux send -t "${TMUX_SESSION}.1" C-d
 
 exit 0
